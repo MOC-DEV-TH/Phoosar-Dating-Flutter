@@ -1,0 +1,249 @@
+import 'package:flutter/material.dart';
+import '../../localization/app_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phoosar/src/common/widgets/custom_app_bar_view.dart';
+import 'package:phoosar/src/common/widgets/dynamic_drop_down_widget.dart';
+import 'package:phoosar/src/features/auth/add_speak_language_screen.dart';
+import 'package:phoosar/src/providers/data_providers.dart';
+import 'package:phoosar/src/utils/colors.dart';
+import 'package:phoosar/src/utils/fonts.dart';
+import 'package:phoosar/src/utils/gap.dart';
+
+import '../../common/widgets/common_button.dart';
+import '../../data/response/country_list_response.dart';
+import '../../utils/dimens.dart';
+
+class ChooseCountryAndCityScreen extends ConsumerStatefulWidget {
+  const ChooseCountryAndCityScreen({super.key});
+
+  @override
+  ConsumerState<ChooseCountryAndCityScreen> createState() =>
+      _ChooseCountryAndCityScreenState();
+}
+
+class _ChooseCountryAndCityScreenState
+    extends ConsumerState<ChooseCountryAndCityScreen> {
+  @override
+  Widget build(BuildContext context) {
+    var countryList = ref.watch(countryListProvider(context));
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: whitePaleColor,
+          appBar: CustomAppBarView(),
+          body: Padding(
+              padding: const EdgeInsets.symmetric(
+                  vertical: kMarginLarge, horizontal: kMarginXLarge),
+              child: countryList.when(data: (countryList) {
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      ///From
+                      MatchCityAndCountryDropdownView(
+                        countryList: countryList,
+                      ),
+
+                      40.vGap,
+
+                      ///I am currently located in
+                      CurrentlyLocatedCityAndCountryDropdownView(
+                        countryList: countryList,
+                      ),
+                    ],
+                  ),
+                );
+              }, error: (error, stack) {
+                return Container();
+              }, loading: () {
+                return Center(
+                  child: CircularProgressIndicator(
+                    color: primaryColor,
+                  ),
+                );
+              })),
+          bottomNavigationBar:
+              ///continue button
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 20, left: 60, right: 60),
+                    child: CommonButton(
+                      containerVPadding: 10,
+                      text: AppLocalizations.of(context)!.kContinueLabel,
+                      fontSize: 18,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AddSpeakLanguageScreen(),
+                          ),
+                        );
+                      },
+                      bgColor: Colors.black,
+                      buttonTextColor: Colors.white,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 60, left: 30, right: 30),
+                    child: Text(
+                      textAlign: TextAlign.center,
+                      AppLocalizations.of(context)!.locationDescription,
+                      style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 16,
+                          fontFamily: kFontArticulatCFMedium),
+                    ),
+                  ),
+                ],
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+///currently located city and country dropdown view
+class CurrentlyLocatedCityAndCountryDropdownView
+    extends ConsumerStatefulWidget {
+  final List<CountryData> countryList;
+
+  const CurrentlyLocatedCityAndCountryDropdownView(
+      {super.key, required this.countryList});
+
+  @override
+  ConsumerState<CurrentlyLocatedCityAndCountryDropdownView> createState() =>
+      _CurrentlyLocatedCityAndCountryDropdownViewState();
+}
+
+class _CurrentlyLocatedCityAndCountryDropdownViewState
+    extends ConsumerState<CurrentlyLocatedCityAndCountryDropdownView> {
+  @override
+  void initState() {
+    super.initState();
+    ref.read(cityRequestProvider.notifier).state.countryCode =
+        widget.countryList.first.code.toString();
+    ref.read(profileSaveRequestProvider.notifier).state.country =
+        widget.countryList.first.code.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var cityList = ref.watch(cityListProvider(context));
+    return Column(
+      children: [
+        Text(
+          AppLocalizations.of(context)!.kCurrentLocateIn.toUpperCase(),
+          style: TextStyle(
+              color: Colors.black,
+              fontSize: kTextRegular22,
+              fontFamily: kFontGibsonBold),
+        ),
+        18.vGap,
+        DynamicDropDownWidget(
+          items: widget.countryList,
+          hintText: 'Country',
+          onSelect: (value) {
+            ref.invalidate(cityRequestProvider);
+            ref.read(profileSaveRequestProvider.notifier).state.country =
+                value.code.toString();
+            ref.read(cityRequestProvider.notifier).state.countryCode =
+                value.code.toString();
+            ref.invalidate(cityListProvider);
+          },
+        ),
+        20.vGap,
+        cityList.when(data: (cityList) {
+          ref.read(profileSaveRequestProvider.notifier).state.city =
+              cityList.first.code.toString();
+          return DynamicDropDownWidget(
+            hintText: 'City',
+            items: cityList,
+            onSelect: (value) {
+              ref.read(profileSaveRequestProvider.notifier).state.city =
+                  value.code.toString();
+            },
+          );
+        }, error: (error, stack) {
+          return Container(
+            child: Text(error.toString()),
+          );
+        }, loading: () {
+          return Container();
+        })
+      ],
+    );
+  }
+}
+
+///match  city and country dropdown view
+class MatchCityAndCountryDropdownView extends ConsumerStatefulWidget {
+  final List<CountryData> countryList;
+
+  const MatchCityAndCountryDropdownView({super.key, required this.countryList});
+
+  @override
+  ConsumerState<MatchCityAndCountryDropdownView> createState() =>
+      _MatchCityAndCountryDropdownViewState();
+}
+
+class _MatchCityAndCountryDropdownViewState
+    extends ConsumerState<MatchCityAndCountryDropdownView> {
+  void initState() {
+    super.initState();
+    ref.read(matchCityRequestProvider.notifier).state.countryCode =
+        widget.countryList.first.code.toString();
+    ref.read(profileSaveRequestProvider.notifier).state.matchCountry =
+        widget.countryList.first.code.toString();
+  }
+
+  Widget build(BuildContext context) {
+    var matchCityList = ref.watch(matchCityListProvider(context));
+    return Column(
+      children: [
+        Text(
+          AppLocalizations.of(context)!.kWantMyMatch.toUpperCase(),
+          style: TextStyle(
+              height: 1.8,
+              color: Colors.black,
+              fontSize: kTextRegular22,
+              fontFamily: kFontGibsonBold),
+        ),
+        18.vGap,
+        DynamicDropDownWidget(
+          hintText: 'Country',
+          items: widget.countryList,
+          onSelect: (value) {
+            ref.invalidate(matchCityRequestProvider);
+            ref.read(profileSaveRequestProvider.notifier).state.matchCountry =
+                value.code.toString();
+            ref.read(matchCityRequestProvider.notifier).state.countryCode =
+                value.code.toString();
+            ref.invalidate(matchCityListProvider);
+          },
+        ),
+        20.vGap,
+        matchCityList.when(data: (cityList) {
+          ref.read(profileSaveRequestProvider.notifier).state.matchCity =
+              cityList.first.code.toString();
+          return DynamicDropDownWidget(
+            items: cityList,
+            onSelect: (value) {
+              ref.read(profileSaveRequestProvider.notifier).state.matchCity =
+                  value.code.toString();
+            },
+            hintText: 'City',
+          );
+        }, error: (error, stack) {
+          return Container(
+            child: Text(error.toString()),
+          );
+        }, loading: () {
+          return Container();
+        })
+      ],
+    );
+  }
+}

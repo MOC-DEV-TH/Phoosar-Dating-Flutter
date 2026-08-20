@@ -1,0 +1,138 @@
+import 'dart:developer';
+
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:phoosar/src/common/widgets/info_row.dart';
+import 'package:phoosar/src/data/response/profile.dart';
+import 'package:phoosar/src/features/dashboard/widgets/dashboard_user_slider.dart';
+import 'package:phoosar/src/features/other_profile/other_profile.dart';
+import 'package:phoosar/src/utils/colors.dart';
+import 'package:phoosar/src/utils/constants.dart';
+import 'package:phoosar/src/utils/fonts.dart';
+import 'package:phoosar/src/utils/gap.dart';
+import 'package:phoosar/src/utils/strings.dart';
+import '../../../localization/app_localizations.dart';
+import 'package:phoosar/src/utils/utils.dart';
+
+class InfoCard extends StatelessWidget {
+  const InfoCard({super.key, required this.findData});
+  final ProfileData findData;
+
+  @override
+  Widget build(BuildContext context) {
+    log(findData.profileImages.toString());
+    return Container(
+      //height: MediaQuery.of(context).size.height * 0.68,
+      child: Stack(
+        children: [
+          DashboardProfileSlider(
+            score: findData.score ?? 0,
+            profileImages: (findData.profileImages == null ||
+                    findData.profileImages!.isEmpty)
+                ? [errorImageUrl]
+                : findData.profileImages ?? [],
+          ),
+          Positioned(
+            bottom: 32,
+            left: 32,
+            right: 24,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) =>
+                            ProfileScreen(findData: findData,isShowLikeButton: true,)));
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.circle,
+                        color:
+                            findData.isOnline == 1 ? Colors.green : Colors.red,
+                        size: 8,
+                      ),
+                      4.hGap,
+                      Text(
+                        findData.isOnline == 1
+                            ? AppLocalizations.of(context)!.kOnlineLabel
+                            : AppLocalizations.of(context)!.kOfflineLabel,
+                        style: GoogleFonts.roboto(
+                          fontSize: smallFontSize,
+                          color: whiteColor,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                    ],
+                  ),
+                  4.hGap,
+                  Row(
+                    children: [
+                      Text(
+                        findData.name ?? '',
+                        style: TextStyle(
+                          fontSize: largeFontSize,
+                          color: whiteColor,
+                          fontFamily: kFontArticulatCFBold
+                        ),
+                      ),
+                      12.hGap,
+                      Visibility(
+                        visible: findData.showAge!.showAgeStatus! == true ? false : true,
+                        child: Text(
+                          Utils.calculateAge(findData.birthdate ?? ''),
+                          style: GoogleFonts.roboto(
+                            fontSize: mediumLargeFontSize,
+                            color: whiteColor,
+                            fontWeight: FontWeight.w200,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  8.vGap,
+                  UserInfoRow(
+                    icon: Image.asset(
+                      'assets/images/location.png',
+                      width: 12,
+                    ),
+                    text: findData.city ?? '',
+                  ),
+                  6.vGap,
+                  UserInfoRow(
+                    icon: Image.asset(
+                      'assets/images/work.png',
+                      width: 14,
+                    ),
+                    text: findData.jobTitle ?? '-',
+                  ),
+                  6.vGap,
+                  UserInfoRow(
+                    icon: Image.asset(
+                      'assets/images/address.png',
+                      width: 14,
+                    ),
+                    text: 'Live in ${findData.city ?? '-'}',
+                  ),
+                  6.vGap,
+                  UserInfoRow(
+                    icon: Image.asset(
+                      'assets/images/school.png',
+                      width: 14,
+                    ),
+                    text: findData.school ?? '-',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

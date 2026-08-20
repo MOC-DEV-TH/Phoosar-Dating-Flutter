@@ -1,0 +1,123 @@
+import 'package:dropdown_button2/dropdown_button2.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phoosar/src/utils/colors.dart';
+
+import '../../utils/dimens.dart';
+
+/// * Area for stateProvider
+
+class DropDownWidget extends ConsumerStatefulWidget {
+  const DropDownWidget(
+      {super.key,
+      required this.items,
+      required this.onSelect,
+      this.defaultBgColor = true,
+      required this.initValue});
+
+  final List<String> items;
+  final Function(String?) onSelect;
+  final bool defaultBgColor;
+  final String? initValue;
+  @override
+  ConsumerState<ConsumerStatefulWidget> createState() => _DropDownWidgetState();
+}
+
+class _DropDownWidgetState extends ConsumerState<DropDownWidget> {
+  final TextEditingController textEditingController = TextEditingController();
+
+  @override
+  void dispose() {
+    textEditingController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        canvasColor: whitePaleColor,
+      ),
+      child: DropdownButtonFormField2<String>(
+        value: widget.initValue,
+        isExpanded: true,
+        selectedItemBuilder: (BuildContext context) {
+          return widget.items.map<Widget>((String value) {
+            return Center(
+              child: FittedBox(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize:
+                        14,
+                    fontWeight: FontWeight.bold
+                  ),
+                ),
+              ),
+            );
+          }).toList();
+        },
+        decoration: InputDecoration(
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(20),
+              borderSide: BorderSide(color: Colors.black, width: 1.5)),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding:
+              EdgeInsets.symmetric(vertical: 10, horizontal: kMarginLarge),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        items: widget.items
+            .map((item) => DropdownMenuItem<String>(
+                  value: item,
+                  child: SizedBox(
+                    width: 200,
+                    child: Center(
+                      child: Text(
+                        item,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: Colors.black, fontSize: kTextRegular2x),
+                      ),
+                    ),
+                  ),
+                ))
+            .toList(),
+        validator: (value) {
+          if (value == null) {
+            return 'Please select';
+          }
+          return null;
+        },
+        onChanged: widget.onSelect,
+        buttonStyleData: const ButtonStyleData(
+          padding: EdgeInsets.only(right: 0),
+        ),
+        iconStyleData: const IconStyleData(
+          icon: Icon(
+            Icons.arrow_drop_down,
+            color: Colors.black,
+          ),
+          iconSize: 14,
+        ),
+        dropdownStyleData: DropdownStyleData(
+          maxHeight: 300,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(5),
+          ),
+        ),
+        menuItemStyleData: const MenuItemStyleData(
+          padding: EdgeInsets.symmetric(horizontal: 0),
+        ),
+        onMenuStateChange: (isOpen) {
+          if (!isOpen) {
+            textEditingController.clear();
+          }
+        },
+      ),
+    );
+  }
+}

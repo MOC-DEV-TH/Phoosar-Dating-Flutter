@@ -1,0 +1,337 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phoosar/src/common/widgets/common_button.dart';
+import 'package:phoosar/src/common/widgets/input_view.dart';
+import 'package:phoosar/src/data/response/authentication_response.dart';
+import 'package:phoosar/src/features/auth/choose_gender_screen.dart';
+import 'package:phoosar/src/features/auth/login.dart';
+import 'package:phoosar/src/providers/app_provider.dart';
+import 'package:phoosar/src/providers/profile_provider.dart';
+import 'package:phoosar/src/providers/profiles_provider.dart';
+import 'package:phoosar/src/providers/room_provider.dart';
+import 'package:phoosar/src/utils/colors.dart';
+import 'package:phoosar/src/utils/constants.dart';
+import 'package:phoosar/src/utils/dimens.dart';
+import 'package:phoosar/src/utils/fonts.dart';
+import 'package:phoosar/src/utils/gap.dart';
+import '../../localization/app_localizations.dart';
+import 'package:pin_code_fields/pin_code_fields.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class EnterPasswordScreen extends ConsumerStatefulWidget {
+  const EnterPasswordScreen({
+    super.key,
+    required this.email,
+    required this.type,
+    required this.userName,
+    required this.phoneNumber,
+  });
+  final String email;
+  final String type;
+  final String userName;
+  final String phoneNumber;
+
+  @override
+  ConsumerState<EnterPasswordScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends ConsumerState<EnterPasswordScreen> {
+  bool isLoading = false;
+
+  final _formKey = GlobalKey<FormState>();
+  StreamController<ErrorAnimationType>? errorController;
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  ///Email or Phone number
+  String selectedText = "Email";
+  late final StreamSubscription<AuthState> authSubscription;
+  bool haveNavigated = false;
+  bool isShowPassword = true;
+  bool isShowConfirmPassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    errorController = StreamController<ErrorAnimationType>();
+
+    // Listen to auth state to redirect user when the user clicks on confirmation link
+    authSubscription = supabase.auth.onAuthStateChange.listen((data) {
+      saveSupabaseUserId(data);
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+
+    errorController?.close();
+  }
+
+  void onTapShowPasswordToggleObscured(){
+    setState(() {
+      isShowPassword = !isShowPassword;
+    });
+  }
+
+  void onTapShowConfirmPasswordToggleObscured(){
+    setState(() {
+      isShowConfirmPassword = !isShowConfirmPassword;
+    });
+  }
+
+  Future<void> saveSupabaseUserId(AuthState data) async {
+    var response = await ref.read(repositoryProvider).saveSupabaseUserId(
+      {
+        "supabase_user_id": data.session!.user.id.toString(),
+      },
+      context,
+    );
+    if (response.statusCode.toString().startsWith("2")) {
+      final session = data.session;
+      if (session != null && !haveNavigated) {
+        haveNavigated = true;
+        navigateToNextScreen();
+      }
+    } else {
+      // Handle error response
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          Image.asset(
+            'assets/images/sign_up_bg.png',
+            height: double.infinity,
+            width: double.infinity,
+            fit: BoxFit.fill,
+          ),
+          Form(
+            key: _formKey,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    80.vGap,
+                    ///app icon
+                    Image.asset(
+                      'assets/images/phoosar_img.png',
+                      height: 80,
+                    ),
+
+                    40.vGap,
+
+                    Text(
+                      AppLocalizations.of(context)!.kEnter8Characters,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.black, fontSize: kTextRegular2x,fontWeight: FontWeight.normal),
+                    ),
+
+                    40.vGap,
+
+                    Text(
+                      AppLocalizations.of(context)!.kMakeItMemorable.toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.black, fontSize: 22,fontFamily: kFontGibsonBold),
+                    ),
+
+                    20.vGap,
+
+                    /// text field
+                    InputView(
+                        controller: _passwordController,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) {
+                            return 'Required';
+                          }
+                          return null;
+                        },
+                        isSecure : isShowPassword,
+                        isPasswordView: true,
+                        toggleObscured: onTapShowPasswordToggleObscured,
+                        toggleObscuredColor: Colors.white,
+                        bgColor: Colors.black,
+                        hintTextColor: Colors.white,
+                        hintLabel: AppLocalizations.of(context)!.kPasswordLabel),
+                    24.vGap,
+                    InputView(
+                        controller: _confirmPasswordController,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) {
+                            return 'Required';
+                          }
+                          return null;
+                        },
+                        isSecure : isShowConfirmPassword,
+                        isPasswordView: true,
+                        toggleObscured: onTapShowConfirmPasswordToggleObscured,
+                        toggleObscuredColor: Colors.white,
+                        bgColor: Colors.black,
+                        hintTextColor: Colors.white,
+                        hintLabel:
+                            AppLocalizations.of(context)!.kConfirmPasswordLabel),
+
+                    10.vGap,
+
+                    30.vGap,
+
+                    ///ConfirmButton button
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width / 2,
+                      child: CommonButton(
+                        containerVPadding: 10,
+                        text: AppLocalizations.of(context)!.kConfirmLabel.toUpperCase(),
+                        fontSize: 18,
+                        isLoading: isLoading,
+                        onTap: () {
+                          _signUp();
+                        },
+                        bgColor: Colors.green,
+                        buttonTextColor: Colors.white,
+                      ),
+                    ),
+
+                    80.vGap,
+
+                    ///already have account
+                    RichText(
+                      text: new TextSpan(
+                        style: new TextStyle(
+                          fontSize: kTextRegular2x,
+                          color: Colors.grey,
+                        ),
+                        children: <TextSpan>[
+                          TextSpan(
+                              text: AppLocalizations.of(context)!
+                                  .kAlreadyHaveAccount,
+                          style: TextStyle(color: Colors.black,fontFamily: kFontArticulatCFNormal)),
+                          TextSpan(
+                            text: AppLocalizations.of(context)!.kSignInLabel,
+                            style: new TextStyle(
+                                fontWeight: FontWeight.bold, color: primaryColor,fontFamily: kFontArticulatCFNormal),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => LoginScreen(),
+                                  ),
+                                );
+                              },
+                          ),
+                        ],
+                      ),
+                    )
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _signUp() async {
+    final isValid = _formKey.currentState!.validate();
+    if (!isValid) {
+      return;
+    }
+    setState(() {
+      isLoading = true;
+    });
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+    if (password != confirmPassword) {
+      context.showErrorSnackBar(message: 'Passwords do not match');
+      return;
+    }
+    var response = await ref.read(repositoryProvider).register(
+          jsonEncode({
+            "value": widget.type == "email" ? widget.email : widget.phoneNumber,
+            "password": password,
+            "password_confirmation": confirmPassword,
+            "user_name": widget.userName,
+            "type": widget.type,
+          }),
+          context,
+        );
+    if (response.statusCode.toString().startsWith("2")) {
+      AuthenticationResponse authResponse =
+          AuthenticationResponse.fromJson(jsonDecode(response.body));
+      ref
+          .watch(sharedPrefProvider)
+          .setString("token", authResponse.token ?? '');
+      // final profileRes = await ref
+      //     .watch(repositoryProvider)
+      //     .getProfile(jsonEncode({}), context);
+      // var data = SelfProfileResponse.fromJson(jsonDecode(profileRes.body));
+      // ref.read(selfProfileProvider.notifier).state = data;
+      supabaseRegister();
+    } else {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  supabaseRegister() async {
+    // Supabase Register
+    try {
+      await supabase.auth.signUp(
+        email: widget.type == "email"
+            ? widget.email
+            : ('user' + widget.phoneNumber + '@gmail.com'),
+        password: _passwordController.text,
+        data: {
+          'username': widget.userName,
+          'device_token': 'device_token',
+        },
+        emailRedirectTo: 'io.supabase.chat://login',
+      );
+    } on AuthException catch (error) {
+      debugPrint(error.toString());
+      context.showErrorSnackBar(message: error.message);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (error) {
+      debugPrint(error.toString());
+      context.showErrorSnackBar(message: unexpectedErrorMessage);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  navigateToNextScreen() {
+    ref.invalidate(profilesProvider);
+    ref.invalidate(profileProvider);
+    ref.invalidate(roomsProvider);
+    ref.invalidate(supabaseClientProvider);
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => ChooseGenderScreen()),
+    );
+  }
+}

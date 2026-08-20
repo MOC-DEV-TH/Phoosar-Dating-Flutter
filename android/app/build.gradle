@@ -1,0 +1,103 @@
+plugins {
+    id "com.android.application"
+    id 'com.google.gms.google-services'
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader("UTF-8") { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterVersionCode = localProperties.getProperty("flutter.versionCode")
+if (flutterVersionCode == null) {
+    flutterVersionCode = "1"
+}
+
+def flutterVersionName = localProperties.getProperty("flutter.versionName")
+if (flutterVersionName == null) {
+    flutterVersionName = "1.0"
+}
+
+android {
+    namespace = "com.moc.phoosar"
+    compileSdk = 35
+    ndkVersion = "25.1.8937393"
+
+    defaultConfig {
+        applicationId = "com.moc.updatephoosar"
+        minSdkVersion = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutterVersionCode.toInteger()
+        versionName = flutterVersionName
+        ndk {
+            abiFilters 'arm64-v8a', 'x86_64'
+        }
+    }
+
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8
+    }
+
+    packagingOptions {
+        pickFirst 'lib/arm64-v8a/libaosl.so'
+        pickFirst 'lib/x86_64/libaosl.so'
+        pickFirst 'lib/x86/libaosl.so'
+        pickFirst 'lib/armeabi-v7a/libaosl.so'
+
+        exclude 'lib/armeabi-v7a/libagora_ai_denoise_extension.so'
+        exclude 'lib/armeabi-v7a/libagora_spatial_audio_extension.so'
+        exclude 'lib/armeabi-v7a/libagora_full_audio_format_extension.so'
+
+        exclude 'lib/arm64-v8a/libagora_ai_denoise_extension.so'
+        exclude 'lib/arm64-v8a/libagora_spatial_audio_extension.so'
+        exclude 'lib/arm64-v8a/libagora_full_audio_format_extension.so'
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("../phoosar-keystore.jks")
+            storePassword "com.moc.updatephoosar"
+            keyAlias "com.moc.updatephoosar"
+            keyPassword "com.moc.updatephoosar"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig = signingConfigs.release
+        }
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.3'
+    implementation 'com.google.android.gms:play-services-auth:20.4.1'
+
+    ///Business TikTok
+    implementation 'com.github.tiktok:tiktok-business-android-sdk:1.4.1'
+    // replace the version with the one which suits your need
+    //to listen for app life cycle
+    implementation 'androidx.lifecycle:lifecycle-process:2.4.0'
+    implementation 'androidx.lifecycle:lifecycle-common-java8:2.4.0'
+    //to get Google install referrer
+    implementation 'com.android.installreferrer:installreferrer:2.2'
+    implementation 'com.android.billingclient:billing:8.0.0'
+}
+
+flutter {
+    source = "../.."
+}

@@ -1,0 +1,556 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:phoosar/src/common/widgets/delete_account_dialog_view.dart';
+import 'package:phoosar/src/common/widgets/logout_dialog_view.dart';
+import 'package:phoosar/src/features/auth/login.dart';
+import 'package:phoosar/src/features/user_setting/block_user_screen.dart';
+import 'package:phoosar/src/features/user_setting/purchase_history.dart';
+import 'package:phoosar/src/features/user_setting/whats_new.dart';
+import 'package:phoosar/src/providers/app_provider.dart';
+import 'package:phoosar/src/providers/data_providers.dart';
+import 'package:phoosar/src/utils/dimens.dart';
+import 'package:phoosar/src/utils/gap.dart';
+
+import '../../localization/app_localizations.dart';
+import '../../services/tiktok_events.dart';
+import '../../utils/colors.dart';
+
+final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+class UserSettingScreen extends ConsumerWidget {
+  const UserSettingScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    var selfProfileData = ref.watch(selfProfileProvider);
+    var showBuyCoinData = ref.watch(showBuyCoinProvider);
+
+    return Scaffold(
+      key: _scaffoldKey,
+      appBar: AppBar(
+        automaticallyImplyLeading: true,
+        backgroundColor: whitePaleColor,
+        title: Text(
+          AppLocalizations.of(context)!.kSettingLowerCaseLabel,
+        ),
+        centerTitle: true,
+      ),
+      backgroundColor: whitePaleColor,
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              vertical: kMarginMedium2, horizontal: kMarginMedium2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ///phoosar premium view
+              // Visibility(
+              //   visible: showBuyCoinData.toString() == '1',
+              //   child: GestureDetector(
+              //     onTap: () {
+              //       // Navigator.push(
+              //       //     context,
+              //       //     MaterialPageRoute(
+              //       //         builder: (context) => PhoosarPremiumScreen()));
+              //     },
+              //     child: Padding(
+              //         padding:
+              //         const EdgeInsets.symmetric(horizontal: kMarginMedium),
+              //         child: Container(
+              //           decoration: BoxDecoration(
+              //             color: Colors.white,
+              //             borderRadius: BorderRadius.circular(10),
+              //           ),
+              //           child: PhoosarPremiumCarouselWidget(titleColor: Colors.grey,isBlackPremiumLogo: true,),
+              //         )),
+              //   ),
+              // ),
+
+              20.vGap,
+
+              ///location and city dropdown with label view
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppLocalizations.of(context)!.kAccountSettingLabel,
+                    style:
+                        TextStyle(color: Colors.grey, fontSize: kTextRegular2x),
+                  ),
+                  12.vGap,
+                  LabelWithIconOrText(
+                    label: AppLocalizations.of(context)!.kLocationLabel,
+                    isIcon: false,
+                    text: ref.watch(locationProvider),
+                  ),
+                ],
+              ),
+
+              20.vGap,
+
+              ///active subscription
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppLocalizations.of(context)!.kActiveSubscriptionLabel,
+                    style:
+                        TextStyle(color: Colors.grey, fontSize: kTextRegular2x),
+                  ),
+                  12.vGap,
+                  LabelWithIconOrText(
+                    label: (selfProfileData?.data?.isPremium ?? false)
+                        ? 'Phoosar Premium'
+                        : 'None',
+                    isIcon: false,
+                  ),
+                ],
+              ),
+
+              28.vGap,
+
+              ///billing
+              Visibility(
+                visible: showBuyCoinData.toString() == '1',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      AppLocalizations.of(context)!.kBillingLabel,
+                      style: TextStyle(
+                          color: Colors.grey, fontSize: kTextRegular2x),
+                    ),
+                    12.vGap,
+                    LabelWithIconOrText(
+                      label:
+                          AppLocalizations.of(context)!.kPurchaseHistoryLabel,
+                      isIcon: true,
+                      onTap: () {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => PurchaseHistory()));
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              28.vGap,
+
+              ///privacy
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppLocalizations.of(context)!.kPrivacyLabel,
+                    style:
+                        TextStyle(color: Colors.grey, fontSize: kTextRegular2x),
+                  ),
+                  12.vGap,
+                  LabelWithIconOrText(
+                    label: AppLocalizations.of(context)!.kBlockingLabel,
+                    isIcon: false,
+                    onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => BlockUserScreen()));
+                    },
+                  ),
+                ],
+              ),
+
+              20.vGap,
+
+              ///notification
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppLocalizations.of(context)!.kNotificationLabel,
+                    style:
+                        TextStyle(color: Colors.grey, fontSize: kTextRegular2x),
+                  ),
+                  12.vGap,
+                  LabelWithIconOrText(
+                    label: AppLocalizations.of(context)!.kPushNotificationLabel,
+                    isIcon: false,
+                    onTap: () {},
+                  ),
+                ],
+              ),
+
+              40.vGap,
+
+              ///help and what's new view
+              HelpAndWhatNewView(),
+
+              40.vGap,
+
+              ///logout and delete account view
+              LogoutAndDeleteAccountView(),
+
+              10.vGap,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+///help and what's new view
+class HelpAndWhatNewView extends StatelessWidget {
+  const HelpAndWhatNewView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ///help container
+        Container(
+          padding: EdgeInsets.symmetric(
+              horizontal: kMarginMedium2, vertical: kMarginMedium2),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey.withOpacity(0.3))),
+          child: Row(
+            children: [
+              Spacer(),
+              Text(
+                AppLocalizations.of(context)!.kHelpAndSupportLabel,
+                style:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+              ),
+              Spacer(),
+            ],
+          ),
+        ),
+
+        10.vGap,
+
+        ///term and conditions
+        LabelWithIconOrText(
+          label: AppLocalizations.of(context)!.kTermAndConditionLabel,
+          isIcon: true,
+          onTap: () {},
+        ),
+
+        10.vGap,
+
+        ///what news container
+        LabelWithIconOrText(
+          label: AppLocalizations.of(context)!.kWhatNewLabel,
+          isIcon: true,
+          onTap: () {
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => WhatsNewScreen()));
+          },
+        ),
+      ],
+    );
+  }
+}
+
+///logout and delete account view
+class LogoutAndDeleteAccountView extends ConsumerStatefulWidget {
+  const LogoutAndDeleteAccountView({super.key});
+
+  @override
+  ConsumerState<LogoutAndDeleteAccountView> createState() =>
+      _LogoutAndDeleteAccountViewState();
+}
+
+class _LogoutAndDeleteAccountViewState
+    extends ConsumerState<LogoutAndDeleteAccountView> {
+  var isLoading = false;
+  var isDeleteLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    var selfProfileData = ref.watch(selfProfileProvider);
+    return Column(
+      children: [
+        ///logout container
+        GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () async {
+            showGeneralDialog(
+              barrierLabel: "Label",
+              barrierDismissible: true,
+              barrierColor: Colors.black.withOpacity(0.5),
+              transitionDuration: const Duration(milliseconds: 300),
+              context: _scaffoldKey.currentContext!,
+              pageBuilder: (context, anim1, anim2) {
+                return Align(
+                  alignment: Alignment.center,
+                  child: SizedBox.expand(
+                      child: LogoutDialogView(onLogout: () async {
+                    if (isLoading != true) {
+                      setState(() {
+                        isLoading = true;
+                      });
+                      await logout(_scaffoldKey.currentContext!, ref);
+                      setState(() {
+                        isLoading = false;
+                      });
+                    }
+                  })),
+                );
+              },
+              transitionBuilder: (context, anim1, anim2, child) {
+                return SlideTransition(
+                  position:
+                      Tween(begin: const Offset(0, -1), end: const Offset(0, 0))
+                          .animate(anim1),
+                  child: child,
+                );
+              },
+            );
+          },
+          child: Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: kMarginMedium2, vertical: kMarginMedium2),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.withOpacity(0.3))),
+            child: isLoading == true
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Please wait...',
+                          style: const TextStyle(color: primaryColor)),
+                      const SpinKitThreeBounce(size: 25, color: primaryColor),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Spacer(),
+                      Text(
+                        AppLocalizations.of(context)!.kLogoutLabel,
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                      Spacer(),
+                    ],
+                  ),
+          ),
+        ),
+
+        16.vGap,
+
+        ///app icon
+        Image.asset(
+          selfProfileData != null && (selfProfileData.data!.isPremium ?? false)
+              ? 'assets/images/ic_premium_launcher.png'
+              : 'assets/images/ic_launcher.png',
+          width: (selfProfileData!.data!.isPremium ?? false) ? 60 : 42,
+          fit: BoxFit.fill,
+        ),
+
+        16.vGap,
+
+        ///delete account container
+        GestureDetector(
+          onTap: () async {
+            showGeneralDialog(
+              barrierLabel: "Label",
+              barrierDismissible: true,
+              barrierColor: Colors.black.withOpacity(0.5),
+              transitionDuration: const Duration(milliseconds: 300),
+              context: _scaffoldKey.currentContext!,
+              pageBuilder: (context, anim1, anim2) {
+                return Align(
+                  alignment: Alignment.center,
+                  child: SizedBox.expand(
+                      child: DeleteAccountDialogView(onTapConfirm: () async {
+                    if (isDeleteLoading != true) {
+                      setState(() {
+                        isDeleteLoading = true;
+                      });
+                      await deleteAccount(_scaffoldKey.currentContext!, ref);
+                      setState(() {
+                        isDeleteLoading = false;
+                      });
+                    }
+                  })),
+                );
+              },
+              transitionBuilder: (context, anim1, anim2, child) {
+                return SlideTransition(
+                  position:
+                      Tween(begin: const Offset(0, -1), end: const Offset(0, 0))
+                          .animate(anim1),
+                  child: child,
+                );
+              },
+            );
+          },
+          child: Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: kMarginMedium2, vertical: kMarginMedium2),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.withOpacity(0.3))),
+            child: isDeleteLoading
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Please wait...',
+                          style: const TextStyle(color: primaryColor)),
+                      const SpinKitThreeBounce(size: 25, color: primaryColor),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Spacer(),
+                      Text(
+                        AppLocalizations.of(context)!.kDeleteAccountLabel,
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      Spacer(),
+                    ],
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> logout(BuildContext context, WidgetRef ref) async {
+    await TikTokEvents.trackEvent(
+      'View Content',
+      properties: {'content_type': 'Logout',},
+    );
+    await _updateOnlineStatus(false, ref, context);
+  }
+
+  Future<void> deleteAccount(BuildContext context, WidgetRef ref) async {
+    await _deleteAccount(ref, context);
+  }
+
+  ///update online status
+  Future<void> _deleteAccount(WidgetRef ref, BuildContext context) async {
+    try {
+      final repository = ref.watch(repositoryProvider);
+      await repository.deleteAccount(
+        {},
+        context,
+      );
+
+      /// Clear shared preferences
+      await ref.read(sharedPrefProvider).clear();
+      ref.invalidate(dashboardProvider);
+
+      /// Navigate to the login screen
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      debugPrint('Error: $e');
+    }
+  }
+
+  ///update online status
+  Future<void> _updateOnlineStatus(
+      bool isOnline, WidgetRef ref, BuildContext context) async {
+    debugPrint("IsOnline:::$isOnline");
+    try {
+      final repository = ref.watch(repositoryProvider);
+      await repository.saveOnlineStatus(
+        jsonEncode({"is_online": isOnline}),
+        context,
+      );
+
+      ///clear sharedPrefProvider data
+      await ref.read(sharedPrefProvider).clear();
+      ref.invalidate(dashboardProvider);
+
+      ///navigate to login screen
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      debugPrint('Error: $e');
+    }
+  }
+}
+
+///label with icon or text container view
+class LabelWithIconOrText extends StatelessWidget {
+  final String label;
+  final String? text;
+  final bool isIcon;
+  final Function()? onTap;
+
+  const LabelWithIconOrText(
+      {super.key,
+      required this.label,
+      required this.isIcon,
+      this.text,
+      this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        onTap!();
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(
+            horizontal: kMarginMedium2, vertical: kMarginMedium2),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.withOpacity(0.3))),
+        child: Row(
+          children: [
+            Text(
+              label,
+              style:
+                  TextStyle(color: Colors.grey, fontWeight: FontWeight.normal),
+            ),
+            Spacer(),
+
+            ///arrow forward
+            Visibility(
+                visible: isIcon,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: kMarginMedium2, vertical: kMarginSmall),
+                  decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.grey.withOpacity(0.5)),
+                  child: Center(
+                    child: Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: Colors.grey,
+                    ),
+                  ),
+                )),
+
+            Visibility(
+              visible: !isIcon,
+              child: Text(
+                text ?? "",
+                style: TextStyle(
+                    color: Colors.grey, fontWeight: FontWeight.normal),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
