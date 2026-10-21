@@ -1,9 +1,10 @@
-import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:pin_code_fields/pin_code_fields.dart';
+
 import 'package:phoosar/src/common/widgets/common_button.dart';
 import 'package:phoosar/src/features/auth/login.dart';
 import 'package:phoosar/src/features/auth/update_password_screen.dart';
@@ -12,10 +13,9 @@ import 'package:phoosar/src/utils/colors.dart';
 import 'package:phoosar/src/utils/dimens.dart';
 import 'package:phoosar/src/utils/fonts.dart';
 import 'package:phoosar/src/utils/gap.dart';
-import '../../localization/app_localizations.dart';
-import 'package:pin_code_fields/pin_code_fields.dart';
 
 import '../../data/request/forgot_password_otp_request.dart';
+import '../../localization/app_localizations.dart';
 
 class EnterForgotPasswordPinCodeScreen extends ConsumerStatefulWidget {
   const EnterForgotPasswordPinCodeScreen({
@@ -27,30 +27,22 @@ class EnterForgotPasswordPinCodeScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<EnterForgotPasswordPinCodeScreen> createState() =>
-      _RegisterScreenState();
+      _EnterForgotPasswordPinCodeScreenState();
 }
 
-class _RegisterScreenState
+class _EnterForgotPasswordPinCodeScreenState
     extends ConsumerState<EnterForgotPasswordPinCodeScreen> {
   final _formKey = GlobalKey<FormState>();
-  StreamController<ErrorAnimationType>? errorController;
-  final TextEditingController _pinController = TextEditingController();
 
-  ///Email or Phone number
-  String selectedText = "Email";
+  final PinInputController _pinController = PinInputController();
+
   bool isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    errorController = StreamController<ErrorAnimationType>();
-  }
+  bool _isResending = false;
 
   @override
   void dispose() {
+    _pinController.dispose();
     super.dispose();
-
-    errorController?.close();
   }
 
   @override
@@ -75,7 +67,7 @@ class _RegisterScreenState
                   children: [
                     80.vGap,
 
-                    ///app icon
+                    // App logo
                     Image.asset(
                       'assets/images/phoosar_img.png',
                       height: 80,
@@ -86,124 +78,123 @@ class _RegisterScreenState
                     Text(
                       AppLocalizations.of(context)!.kCheckYourMessage,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                          color: Colors.black,
-                          fontSize: kTextRegular2x,
-                          fontWeight: FontWeight.normal),
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: kTextRegular2x,
+                        fontWeight: FontWeight.normal,
+                      ),
                     ),
+
                     40.vGap,
+
                     Text(
                       AppLocalizations.of(context)!
                           .kYourCodeIsComing
                           .toUpperCase(),
-                      style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 22,
-                          fontFamily: kFontGibsonBold),
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 22,
+                        fontFamily: kFontGibsonBold,
+                      ),
                     ),
 
                     20.vGap,
 
-                    ///Pin code text field
+                    // Updated PIN field
                     Center(
-                        child: PinCodeTextField(
-                      backgroundColor: Colors.transparent,
-                      keyboardType: TextInputType.number,
-                      autoDisposeControllers: true,
-                      cursorColor: Colors.blue,
-                      appContext: context,
-                      length: 6,
-                      obscureText: false,
-                      animationType: AnimationType.fade,
-                      pinTheme: PinTheme(
-                        selectedFillColor: Colors.black,
-                        inactiveColor: Colors.black,
-                        activeColor: Colors.transparent,
-                        inactiveFillColor: Colors.black,
-                        shape: PinCodeFieldShape.box,
-                        borderWidth: 1,
-                        inactiveBorderWidth: 1,
-                        borderRadius: BorderRadius.circular(10),
-                        fieldHeight: 50,
-                        fieldWidth: 50,
-                        activeFillColor: primaryColor,
+                      child: MaterialPinField(
+                        length: 6,
+                        pinController: _pinController,
+                        keyboardType: TextInputType.number,
+                        theme: MaterialPinTheme(
+                          shape: MaterialPinShape.outlined,
+                          cellSize: const Size(48, 55),
+                          spacing: 8,
+                          borderRadius: BorderRadius.circular(10),
+                          borderColor: Colors.black,
+                          focusedBorderColor: primaryColor,
+                        ),
+                        onCompleted: (value) {
+                          // _verifyOTP();
+                        },
                       ),
-                      animationDuration: const Duration(milliseconds: 300),
-                      enableActiveFill: true,
-                      errorAnimationController: errorController,
-                      controller: _pinController,
-                      onCompleted: (v) async {
-                        // _verifyOTP();
-                      },
-                    )),
+                    ),
 
-                    ///resend otp text button
+                    // Resend OTP
                     TextButton(
-                      onPressed: () {
-                        _requestOTP();
-                      },
+                      onPressed:
+                          (isLoading || _isResending) ? null : _requestOTP,
                       child: Text(
                         AppLocalizations.of(context)!.kResendOTPLabel,
-                        style: TextStyle(
-                            fontSize: kTextRegular2x, color: Colors.black),
+                        style: const TextStyle(
+                          fontSize: kTextRegular2x,
+                          color: Colors.black,
+                        ),
                       ),
                     ),
 
                     30.vGap,
 
-                    ///ConfirmButton button
+                    // Confirm button
                     SizedBox(
                       width: MediaQuery.of(context).size.width / 2,
                       child: CommonButton(
-                          containerVPadding: 10,
-                          text: AppLocalizations.of(context)!
-                              .kConfirmLabel
-                              .toUpperCase(),
-                          fontSize: 18,
-                          onTap: () {
-                            if(_pinController.text.isNotEmpty){
-                              _verifyOTP();
-                            }
-                          },
-                          bgColor: Colors.green,
-                          buttonTextColor: Colors.white,
-                          isLoading: isLoading),
+                        containerVPadding: 10,
+                        text: AppLocalizations.of(context)!
+                            .kConfirmLabel
+                            .toUpperCase(),
+                        fontSize: 18,
+                        onTap: () {
+                          if (!isLoading && !_isResending) {
+                            _verifyOTP();
+                          }
+                        },
+                        bgColor: Colors.green,
+                        buttonTextColor: Colors.white,
+                        isLoading: isLoading,
+                      ),
                     ),
 
                     60.vGap,
 
-                    ///already have account
+                    // Already have an account
                     RichText(
-                      text: new TextSpan(
-                        style: new TextStyle(
+                      text: TextSpan(
+                        style: const TextStyle(
                           fontSize: kTextRegular2x,
                           color: Colors.black,
                         ),
-                        children: <TextSpan>[
+                        children: [
                           TextSpan(
-                              text: AppLocalizations.of(context)!
-                                  .kAlreadyHaveAccount,
-                              style: TextStyle(
-                                  fontFamily: kFontArticulatCFNormal)),
+                            text: AppLocalizations.of(context)!
+                                .kAlreadyHaveAccount,
+                            style: const TextStyle(
+                              fontFamily: kFontArticulatCFNormal,
+                            ),
+                          ),
                           TextSpan(
                             text: AppLocalizations.of(context)!.kSignInLabel,
-                            style: new TextStyle(
-                                fontFamily: kFontArticulatCFNormal,
-                                fontWeight: FontWeight.bold,
-                                color: primaryColor),
+                            style: const TextStyle(
+                              fontFamily: kFontArticulatCFNormal,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                            ),
                             recognizer: TapGestureRecognizer()
                               ..onTap = () {
-                                Navigator.pushReplacement(
-                                  context,
+                                if (isLoading || _isResending) {
+                                  return;
+                                }
+
+                                Navigator.of(context).pushReplacement(
                                   MaterialPageRoute(
-                                    builder: (context) => LoginScreen(),
+                                    builder: (_) => const LoginScreen(),
                                   ),
                                 );
                               },
                           ),
                         ],
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -214,55 +205,132 @@ class _RegisterScreenState
     );
   }
 
-  ///request otp
+  // -----------------------------------
+  // RESEND FORGOT PASSWORD OTP
+  // -----------------------------------
+
   Future<void> _requestOTP() async {
-    final isValid = _formKey.currentState!.validate();
-    if (!isValid) {
-      return;
-    }
+    if (isLoading || _isResending) return;
 
     setState(() {
-      isLoading = true;
+      _isResending = true;
     });
-    var forgotPasswordOtpRequest =
-        ForgotPasswordOtpRequest(phone: widget.phoneNumber);
-    await ref
-        .read(repositoryProvider)
-        .forgotPasswordOtpRequest(forgotPasswordOtpRequest, context);
-  }
 
-  ///verify otp
-  Future<void> _verifyOTP() async {
-    final isValid = _formKey.currentState!.validate();
-    if (!isValid) {
-      return;
-    }
-    final pin = _pinController.text;
-    setState(() {
-      isLoading = true;
-    });
-    var response = await ref.read(repositoryProvider).forgotPasswordVerifyOTP(
-          jsonEncode({
-            "phone": widget.phoneNumber,
-            "otp": pin,
-          }),
-          context,
-        );
-    _pinController.clear();
-    if (response.statusCode.toString().startsWith("2")) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => UpdatePasswordScreen(
-            phoneNumber: widget.phoneNumber,
+    try {
+      final request = ForgotPasswordOtpRequest(
+        phone: widget.phoneNumber,
+      );
+
+      await ref.read(repositoryProvider).forgotPasswordOtpRequest(
+            request,
+            context,
+          );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('OTP request completed.'),
+        ),
+      );
+    } catch (error) {
+      debugPrint('Resend forgot password OTP error: $error');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unable to resend OTP. Please try again.',
           ),
         ),
       );
+    } finally {
       if (mounted) {
         setState(() {
-          isLoading = false;
+          _isResending = false;
         });
       }
-    } else {
+    }
+  }
+
+  // -----------------------------------
+  // VERIFY FORGOT PASSWORD OTP
+  // -----------------------------------
+
+  Future<void> _verifyOTP() async {
+    if (isLoading || _isResending) return;
+
+    final isValid = _formKey.currentState?.validate() ?? false;
+
+    if (!isValid) return;
+
+    final pin = _pinController.text.trim();
+
+    if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter a valid 6-digit OTP code.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final response =
+          await ref.read(repositoryProvider).forgotPasswordVerifyOTP(
+                jsonEncode({
+                  "phone": widget.phoneNumber,
+                  "otp": pin,
+                }),
+                context,
+              );
+
+      if (!mounted) return;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        // Clear OTP after successful verification
+        _pinController.clear();
+
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => UpdatePasswordScreen(
+              phoneNumber: widget.phoneNumber,
+            ),
+          ),
+        );
+      } else {
+        _pinController.clear();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Invalid OTP. Please try again.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      debugPrint('Forgot password OTP verification error: $error');
+
+      if (!mounted) return;
+
+      _pinController.clear();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'OTP verification failed. Please try again.',
+          ),
+        ),
+      );
+    } finally {
       if (mounted) {
         setState(() {
           isLoading = false;

@@ -406,30 +406,26 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                               top: 12,
                               right: 6,
                               child: DotsIndicator(
-                                dotsCount: (selfProfileData
-                                            .data?.profileImages?.isNotEmpty ??
-                                        false)
-                                    ? (selfProfileData
-                                                .data?.profileImages?.length ??
-                                            0)
-                                        .clamp(1, double.infinity)
-                                        .toInt()
-                                    : 1, // Ensure dotsCount is at least 1
-                                position: _currentIndex,
+                                dotsCount: (selfProfileData.data?.profileImages?.isNotEmpty ?? false)
+                                    ? selfProfileData.data!.profileImages!.length
+                                    : 1,
+                                position: _currentIndex.toDouble(),
                                 decorator: DotsDecorator(
                                   activeColor: blackColor,
                                   colors: List.filled(
-                                    selfProfileData
-                                            .data?.profileImages?.length ??
-                                        0,
+                                    (selfProfileData.data?.profileImages?.isNotEmpty ?? false)
+                                        ? selfProfileData.data!.profileImages!.length
+                                        : 1,
                                     Colors.white,
                                   ),
                                   size: const Size.square(7),
                                   activeSize: const Size(8, 8),
                                   activeShape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(5.0),
-                                    side: BorderSide(
-                                        color: Colors.white, width: 2),
+                                    side: const BorderSide(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
                                   ),
                                   spacing: const EdgeInsets.all(4.0),
                                 ),

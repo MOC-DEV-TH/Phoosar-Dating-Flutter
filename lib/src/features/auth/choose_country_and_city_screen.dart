@@ -64,41 +64,42 @@ class _ChooseCountryAndCityScreenState
                 );
               })),
           bottomNavigationBar:
+
               ///continue button
               Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 20, left: 60, right: 60),
-                    child: CommonButton(
-                      containerVPadding: 10,
-                      text: AppLocalizations.of(context)!.kContinueLabel,
-                      fontSize: 18,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AddSpeakLanguageScreen(),
-                          ),
-                        );
-                      },
-                      bgColor: Colors.black,
-                      buttonTextColor: Colors.white,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 60, left: 30, right: 30),
-                    child: Text(
-                      textAlign: TextAlign.center,
-                      AppLocalizations.of(context)!.locationDescription,
-                      style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 16,
-                          fontFamily: kFontArticulatCFMedium),
-                    ),
-                  ),
-                ],
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20, left: 60, right: 60),
+                child: CommonButton(
+                  containerVPadding: 10,
+                  text: AppLocalizations.of(context)!.kContinueLabel,
+                  fontSize: 18,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AddSpeakLanguageScreen(),
+                      ),
+                    );
+                  },
+                  bgColor: Colors.black,
+                  buttonTextColor: Colors.white,
+                ),
               ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 60, left: 30, right: 30),
+                child: Text(
+                  textAlign: TextAlign.center,
+                  AppLocalizations.of(context)!.locationDescription,
+                  style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 16,
+                      fontFamily: kFontArticulatCFMedium),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -142,15 +143,21 @@ class _CurrentlyLocatedCityAndCountryDropdownViewState
               fontFamily: kFontGibsonBold),
         ),
         18.vGap,
-        DynamicDropDownWidget(
+        DynamicDropDownWidget<CountryData>(
           items: widget.countryList,
           hintText: 'Country',
+          getItemName: (item) => item.name.toString(),
           onSelect: (value) {
+            if (value == null) return;
+
             ref.invalidate(cityRequestProvider);
+
             ref.read(profileSaveRequestProvider.notifier).state.country =
                 value.code.toString();
+
             ref.read(cityRequestProvider.notifier).state.countryCode =
                 value.code.toString();
+
             ref.invalidate(cityListProvider);
           },
         ),
@@ -158,10 +165,13 @@ class _CurrentlyLocatedCityAndCountryDropdownViewState
         cityList.when(data: (cityList) {
           ref.read(profileSaveRequestProvider.notifier).state.city =
               cityList.first.code.toString();
-          return DynamicDropDownWidget(
+          return DynamicDropDownWidget<dynamic>(
             hintText: 'City',
             items: cityList,
+            getItemName: (item) => item.name.toString(),
             onSelect: (value) {
+              if (value == null) return;
+
               ref.read(profileSaveRequestProvider.notifier).state.city =
                   value.code.toString();
             },
@@ -212,15 +222,21 @@ class _MatchCityAndCountryDropdownViewState
               fontFamily: kFontGibsonBold),
         ),
         18.vGap,
-        DynamicDropDownWidget(
+        DynamicDropDownWidget<CountryData>(
           hintText: 'Country',
           items: widget.countryList,
+          getItemName: (item) => item.name.toString(),
           onSelect: (value) {
+            if (value == null) return;
+
             ref.invalidate(matchCityRequestProvider);
+
             ref.read(profileSaveRequestProvider.notifier).state.matchCountry =
                 value.code.toString();
+
             ref.read(matchCityRequestProvider.notifier).state.countryCode =
                 value.code.toString();
+
             ref.invalidate(matchCityListProvider);
           },
         ),
@@ -228,13 +244,16 @@ class _MatchCityAndCountryDropdownViewState
         matchCityList.when(data: (cityList) {
           ref.read(profileSaveRequestProvider.notifier).state.matchCity =
               cityList.first.code.toString();
-          return DynamicDropDownWidget(
+          return DynamicDropDownWidget<dynamic>(
             items: cityList,
+            hintText: 'City',
+            getItemName: (item) => item.name.toString(),
             onSelect: (value) {
+              if (value == null) return;
+
               ref.read(profileSaveRequestProvider.notifier).state.matchCity =
                   value.code.toString();
             },
-            hintText: 'City',
           );
         }, error: (error, stack) {
           return Container(

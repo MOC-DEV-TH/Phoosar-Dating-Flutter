@@ -1,12 +1,14 @@
+
 plugins {
     id "com.android.application"
-    id 'com.google.gms.google-services'
+    id "com.google.gms.google-services"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
 }
 
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file("local.properties")
+
 if (localPropertiesFile.exists()) {
     localPropertiesFile.withReader("UTF-8") { reader ->
         localProperties.load(reader)
@@ -25,15 +27,22 @@ if (flutterVersionName == null) {
 
 android {
     namespace = "com.moc.phoosar"
-    compileSdk = 35
-    ndkVersion = "25.1.8937393"
+
+    // Required by permission_handler_android
+    compileSdk = 37
+
+    // Required by jni and other Flutter plugins
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "com.moc.updatephoosar"
+
         minSdkVersion = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
+
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
+
         ndk {
             abiFilters 'arm64-v8a', 'x86_64'
         }
@@ -41,12 +50,13 @@ android {
 
     compileOptions {
         coreLibraryDesugaringEnabled true
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
+        jvmTarget = '17'
     }
 
     packagingOptions {
@@ -67,9 +77,12 @@ android {
     signingConfigs {
         release {
             storeFile file("../phoosar-keystore.jks")
-            storePassword "com.moc.updatephoosar"
-            keyAlias "com.moc.updatephoosar"
-            keyPassword "com.moc.updatephoosar"
+
+            // Prefer loading these credentials from key.properties
+            // or environment variables before production builds.
+            storePassword = project.findProperty("PHOOSAR_STORE_PASSWORD") ?: System.getenv("PHOOSAR_STORE_PASSWORD")
+            keyAlias = project.findProperty("PHOOSAR_KEY_ALIAS") ?: System.getenv("PHOOSAR_KEY_ALIAS")
+            keyPassword = project.findProperty("PHOOSAR_KEY_PASSWORD") ?: System.getenv("PHOOSAR_KEY_PASSWORD")
         }
     }
 
@@ -77,24 +90,34 @@ android {
         release {
             minifyEnabled false
             shrinkResources false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+
+            proguardFiles getDefaultProguardFile(
+                    'proguard-android.txt'
+            ), 'proguard-rules.pro'
+
             signingConfig = signingConfigs.release
         }
     }
 }
 
 dependencies {
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.3'
+    // Required by newer flutter_local_notifications
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+
+    // Google Sign-In
     implementation 'com.google.android.gms:play-services-auth:20.4.1'
 
-    ///Business TikTok
+    // TikTok Business SDK
     implementation 'com.github.tiktok:tiktok-business-android-sdk:1.4.1'
-    // replace the version with the one which suits your need
-    //to listen for app life cycle
+
+    // Application lifecycle
     implementation 'androidx.lifecycle:lifecycle-process:2.4.0'
     implementation 'androidx.lifecycle:lifecycle-common-java8:2.4.0'
-    //to get Google install referrer
+
+    // Google Install Referrer
     implementation 'com.android.installreferrer:installreferrer:2.2'
+
+    // Google Play Billing
     implementation 'com.android.billingclient:billing:8.0.0'
 }
 

@@ -18,7 +18,6 @@ import 'package:phoosar/src/utils/dimens.dart';
 import 'package:phoosar/src/utils/fonts.dart';
 import 'package:phoosar/src/utils/gap.dart';
 import '../../localization/app_localizations.dart';
-import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EnterPasswordScreen extends ConsumerStatefulWidget {
@@ -29,6 +28,7 @@ class EnterPasswordScreen extends ConsumerStatefulWidget {
     required this.userName,
     required this.phoneNumber,
   });
+
   final String email;
   final String type;
   final String userName;
@@ -42,7 +42,6 @@ class _RegisterScreenState extends ConsumerState<EnterPasswordScreen> {
   bool isLoading = false;
 
   final _formKey = GlobalKey<FormState>();
-  StreamController<ErrorAnimationType>? errorController;
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
@@ -56,28 +55,29 @@ class _RegisterScreenState extends ConsumerState<EnterPasswordScreen> {
   @override
   void initState() {
     super.initState();
-    errorController = StreamController<ErrorAnimationType>();
 
-    // Listen to auth state to redirect user when the user clicks on confirmation link
     authSubscription = supabase.auth.onAuthStateChange.listen((data) {
-      saveSupabaseUserId(data);
+      if (data.session != null && mounted) {
+        saveSupabaseUserId(data);
+      }
     });
   }
 
   @override
   void dispose() {
+    authSubscription.cancel();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
-
-    errorController?.close();
   }
 
-  void onTapShowPasswordToggleObscured(){
+  void onTapShowPasswordToggleObscured() {
     setState(() {
       isShowPassword = !isShowPassword;
     });
   }
 
-  void onTapShowConfirmPasswordToggleObscured(){
+  void onTapShowConfirmPasswordToggleObscured() {
     setState(() {
       isShowConfirmPassword = !isShowConfirmPassword;
     });
@@ -122,6 +122,7 @@ class _RegisterScreenState extends ConsumerState<EnterPasswordScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     80.vGap,
+
                     ///app icon
                     Image.asset(
                       'assets/images/phoosar_img.png',
@@ -133,15 +134,23 @@ class _RegisterScreenState extends ConsumerState<EnterPasswordScreen> {
                     Text(
                       AppLocalizations.of(context)!.kEnter8Characters,
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.black, fontSize: kTextRegular2x,fontWeight: FontWeight.normal),
+                      style: TextStyle(
+                          color: Colors.black,
+                          fontSize: kTextRegular2x,
+                          fontWeight: FontWeight.normal),
                     ),
 
                     40.vGap,
 
                     Text(
-                      AppLocalizations.of(context)!.kMakeItMemorable.toUpperCase(),
+                      AppLocalizations.of(context)!
+                          .kMakeItMemorable
+                          .toUpperCase(),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.black, fontSize: 22,fontFamily: kFontGibsonBold),
+                      style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 22,
+                          fontFamily: kFontGibsonBold),
                     ),
 
                     20.vGap,
@@ -155,13 +164,14 @@ class _RegisterScreenState extends ConsumerState<EnterPasswordScreen> {
                           }
                           return null;
                         },
-                        isSecure : isShowPassword,
+                        isSecure: isShowPassword,
                         isPasswordView: true,
                         toggleObscured: onTapShowPasswordToggleObscured,
                         toggleObscuredColor: Colors.white,
                         bgColor: Colors.black,
                         hintTextColor: Colors.white,
-                        hintLabel: AppLocalizations.of(context)!.kPasswordLabel),
+                        hintLabel:
+                            AppLocalizations.of(context)!.kPasswordLabel),
                     24.vGap,
                     InputView(
                         controller: _confirmPasswordController,
@@ -171,14 +181,14 @@ class _RegisterScreenState extends ConsumerState<EnterPasswordScreen> {
                           }
                           return null;
                         },
-                        isSecure : isShowConfirmPassword,
+                        isSecure: isShowConfirmPassword,
                         isPasswordView: true,
                         toggleObscured: onTapShowConfirmPasswordToggleObscured,
                         toggleObscuredColor: Colors.white,
                         bgColor: Colors.black,
                         hintTextColor: Colors.white,
-                        hintLabel:
-                            AppLocalizations.of(context)!.kConfirmPasswordLabel),
+                        hintLabel: AppLocalizations.of(context)!
+                            .kConfirmPasswordLabel),
 
                     10.vGap,
 
@@ -189,7 +199,9 @@ class _RegisterScreenState extends ConsumerState<EnterPasswordScreen> {
                       width: MediaQuery.of(context).size.width / 2,
                       child: CommonButton(
                         containerVPadding: 10,
-                        text: AppLocalizations.of(context)!.kConfirmLabel.toUpperCase(),
+                        text: AppLocalizations.of(context)!
+                            .kConfirmLabel
+                            .toUpperCase(),
                         fontSize: 18,
                         isLoading: isLoading,
                         onTap: () {
@@ -213,11 +225,15 @@ class _RegisterScreenState extends ConsumerState<EnterPasswordScreen> {
                           TextSpan(
                               text: AppLocalizations.of(context)!
                                   .kAlreadyHaveAccount,
-                          style: TextStyle(color: Colors.black,fontFamily: kFontArticulatCFNormal)),
+                              style: TextStyle(
+                                  color: Colors.black,
+                                  fontFamily: kFontArticulatCFNormal)),
                           TextSpan(
                             text: AppLocalizations.of(context)!.kSignInLabel,
                             style: new TextStyle(
-                                fontWeight: FontWeight.bold, color: primaryColor,fontFamily: kFontArticulatCFNormal),
+                                fontWeight: FontWeight.bold,
+                                color: primaryColor,
+                                fontFamily: kFontArticulatCFNormal),
                             recognizer: TapGestureRecognizer()
                               ..onTap = () {
                                 Navigator.pushReplacement(
@@ -252,7 +268,13 @@ class _RegisterScreenState extends ConsumerState<EnterPasswordScreen> {
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
     if (password != confirmPassword) {
-      context.showErrorSnackBar(message: 'Passwords do not match');
+      setState(() {
+        isLoading = false;
+      });
+
+      context.showErrorSnackBar(
+        message: 'Passwords do not match',
+      );
       return;
     }
     var response = await ref.read(repositoryProvider).register(
@@ -268,9 +290,7 @@ class _RegisterScreenState extends ConsumerState<EnterPasswordScreen> {
     if (response.statusCode.toString().startsWith("2")) {
       AuthenticationResponse authResponse =
           AuthenticationResponse.fromJson(jsonDecode(response.body));
-      ref
-          .watch(sharedPrefProvider)
-          .setString("token", authResponse.token ?? '');
+      ref.read(sharedPrefProvider).setString("token", authResponse.token ?? '');
       // final profileRes = await ref
       //     .watch(repositoryProvider)
       //     .getProfile(jsonEncode({}), context);

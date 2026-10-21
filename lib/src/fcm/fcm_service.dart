@@ -1,94 +1,139 @@
+
+import 'dart:async';
+import 'dart:io';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../features/auth/auth_screen.dart';
 import '../providers/app_provider.dart';
 import '../utils/strings.dart';
 
-const localNotificationChannel = "high_importance_channel";
-const localNotificationChannelTitle = "High Importance Notifications";
+const localNotificationChannel = 'high_importance_channel';
+const localNotificationChannelTitle = 'High Importance Notifications';
 const localNotificationChannelDescription =
-    "This channel is used for important notifications.";
+    'This channel is used for important notifications.';
 
 class FCMService {
-  static final FCMService _singleton = FCMService._internal();
-
-  factory FCMService() {
-    return _singleton;
-  }
-
   FCMService._internal();
 
-  /// Firebase Messaging Instance
-  FirebaseMessaging messaging = FirebaseMessaging.instance;
+  static final FCMService _singleton = FCMService._internal();
 
-  /// Android Notification Channel
-  AndroidNotificationChannel channel = const AndroidNotificationChannel(
+  factory FCMService() => _singleton;
+
+  final FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+  FlutterLocalNotificationsPlugin();
+
+  final AndroidNotificationChannel channel =
+  const AndroidNotificationChannel(
     localNotificationChannel,
     localNotificationChannelTitle,
     description: localNotificationChannelDescription,
     importance: Importance.max,
   );
 
-  /// Flutter Notification Plugin
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-  FlutterLocalNotificationsPlugin();
-
-  /// Android Initialization Settings
-  AndroidInitializationSettings initializationSettingsAndroid =
+  final AndroidInitializationSettings initializationSettingsAndroid =
   const AndroidInitializationSettings('@mipmap/ic_launcher');
 
   GlobalKey<NavigatorState>? navigatorKey;
 
-  void listenForMessages(SharedPreferences sharedPrefs,WidgetRef ref) async {
+  StreamSubscription<RemoteMessage>? _foregroundSubscription;
+  StreamSubscription<RemoteMessage>? _openedAppSubscription;
+
+  bool _initialized = false;
+
+  // -----------------------------------
+  // INITIALIZE FCM
+  // -----------------------------------
+
+  Future<void> listenForMessages(
+      SharedPreferences sharedPrefs,
+      WidgetRef ref,
+      ) async {
+    if (_initialized) return;
+
+    await initFlutterLocalNotification(sharedPrefs, ref);
+
+    await registerChannel();
+
     await requestNotificationPermissionForIOS(sharedPrefs);
+
     await turnOnIOSForegroundNotification();
 
-    await initFlutterLocalNotification(sharedPrefs,ref);
-    await registerChannel();
-    await FirebaseMessaging.instance.subscribeToTopic('phoosar');
+    await messaging.subscribeToTopic('phoosar');
 
-    FirebaseMessaging.onMessage.listen((remoteMessage) {
-      debugPrint("Notification Sent From Server while in foreground");
-      RemoteNotification? notification = remoteMessage.notification;
-      AndroidNotification? android = remoteMessage.notification?.android;
+    // Foreground notifications
+    _foregroundSubscription =
+        FirebaseMessaging.onMessage.listen((remoteMessage) async {
+          debugPrint('FCM foreground notification received');
 
-      if (notification != null && android != null) {
-        flutterLocalNotificationsPlugin.show(
-          notification.hashCode,
-          notification.title,
-          notification.body,
-          NotificationDetails(
+          final notification = remoteMessage.notification;
+
+          if (notification == null) return;
+
+          // On iOS, FCM displays the foreground notification
+          // using the presentation options configured below.
+          // Avoid displaying a second local notification.
+          if (!Platform.isAndroid) return;
+
+          final notificationDetails = NotificationDetails(
             android: AndroidNotificationDetails(
               channel.id,
               channel.name,
               channelDescription: channel.description,
-              icon: android.smallIcon,
+              importance: Importance.max,
+              priority: Priority.high,
+              icon: '@mipmap/ic_launcher',
             ),
-          ),
-          payload: remoteMessage.data['post_id'].toString(),
-        );
-      }
-    });
+          );
 
-    FirebaseMessaging.onMessageOpenedApp.listen((remoteMessage) {
-      debugPrint("User pressed the notification");
-      doNavigationLogic(sharedPrefs,ref);
-    });
+          await flutterLocalNotificationsPlugin.show(
+            id: notification.hashCode,
+            title: notification.title,
+            body: notification.body,
+            notificationDetails: notificationDetails,
+            payload: remoteMessage.data['post_id']?.toString(),
+          );
+        });
 
-    messaging.getInitialMessage().then((remoteMessage) {
-      debugPrint("Message Launched ${remoteMessage?.data['post_id']}");
-    });
+    // Notification clicked while app is in background
+    _openedAppSubscription =
+        FirebaseMessaging.onMessageOpenedApp.listen((message) async {
+          debugPrint(
+            'Notification opened: ${message.data['post_id']}',
+          );
+
+          await doNavigationLogic(sharedPrefs, ref);
+        });
+
+    // App opened from terminated state
+    final initialMessage = await messaging.getInitialMessage();
+
+    if (initialMessage != null) {
+      debugPrint(
+        'App launched from notification: '
+            '${initialMessage.data['post_id']}',
+      );
+
+      await doNavigationLogic(sharedPrefs, ref);
+    }
+
+    _initialized = true;
   }
 
-  Future requestNotificationPermissionForIOS(SharedPreferences sharedPrefs) async {
-    messaging.getToken().then((fcmToken) {
-      debugPrint("FCM Token for Device ======> $fcmToken");
-      sharedPrefs.setString("fcmToken", fcmToken ?? "");
-    });
-    return messaging.requestPermission(
+  // -----------------------------------
+  // REQUEST NOTIFICATION PERMISSIONS
+  // -----------------------------------
+
+  Future<NotificationSettings> requestNotificationPermissionForIOS(
+      SharedPreferences sharedPrefs,
+      ) async {
+    final settings = await messaging.requestPermission(
       alert: true,
       announcement: false,
       badge: true,
@@ -97,51 +142,131 @@ class FCMService {
       provisional: false,
       sound: true,
     );
+
+    debugPrint(
+      'Notification permission: ${settings.authorizationStatus}',
+    );
+
+    try {
+      final fcmToken = await messaging.getToken();
+
+      if (fcmToken != null) {
+        await sharedPrefs.setString('fcmToken', fcmToken);
+
+        debugPrint('FCM token obtained');
+      }
+    } catch (error) {
+      debugPrint('Unable to get FCM token: $error');
+    }
+
+    return settings;
   }
 
-  Future turnOnIOSForegroundNotification() {
-    return FirebaseMessaging.instance
-        .setForegroundNotificationPresentationOptions(
+  // -----------------------------------
+  // IOS FOREGROUND PRESENTATION
+  // -----------------------------------
+
+  Future<void> turnOnIOSForegroundNotification() async {
+    await messaging.setForegroundNotificationPresentationOptions(
       alert: true,
       badge: true,
       sound: true,
     );
   }
 
-  void onTapLocalNotification(NotificationResponse notificationResponse, SharedPreferences sharedPrefs,WidgetRef ref) async {
-    await doNavigationLogic(sharedPrefs,ref);
-  }
+  // -----------------------------------
+  // INITIALIZE LOCAL NOTIFICATIONS
+  // -----------------------------------
 
-  Future<void> doNavigationLogic(SharedPreferences sharedPrefs,WidgetRef ref) async {
-    var token = sharedPrefs.getString(kTokenKey);
-    if (token == null) {
-      navigatorKey?.currentState?.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => AuthScreen()),
-            (route) => false,
-      );
-    } else {
-      ref.read(dashboardProvider.notifier).setPosition(1);
-    }
-  }
-
-  Future initFlutterLocalNotification(SharedPreferences sharedPrefs,WidgetRef ref) {
-    final InitializationSettings initializationSettings =
-    InitializationSettings(
+  Future<void> initFlutterLocalNotification(
+      SharedPreferences sharedPrefs,
+      WidgetRef ref,
+      ) async {
+    final initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
-      iOS: null,
-      macOS: null,
+      iOS: const DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      ),
     );
-    return flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: (response) =>
-          onTapLocalNotification(response, sharedPrefs,ref),
+
+    await flutterLocalNotificationsPlugin.initialize(
+      settings: initializationSettings,
+      onDidReceiveNotificationResponse: (response) async {
+        await onTapLocalNotification(
+          response,
+          sharedPrefs,
+          ref,
+        );
+      },
     );
   }
 
-  Future? registerChannel() {
-    return flutterLocalNotificationsPlugin
+  // -----------------------------------
+  // REGISTER ANDROID NOTIFICATION CHANNEL
+  // -----------------------------------
+
+  Future<void> registerChannel() async {
+    await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
+  }
+
+  // -----------------------------------
+  // LOCAL NOTIFICATION CLICK
+  // -----------------------------------
+
+  Future<void> onTapLocalNotification(
+      NotificationResponse notificationResponse,
+      SharedPreferences sharedPrefs,
+      WidgetRef ref,
+      ) async {
+    debugPrint(
+      'Local notification tapped: '
+          '${notificationResponse.payload}',
+    );
+
+    await doNavigationLogic(sharedPrefs, ref);
+  }
+
+  // -----------------------------------
+  // NAVIGATION LOGIC
+  // -----------------------------------
+
+  Future<void> doNavigationLogic(
+      SharedPreferences sharedPrefs,
+      WidgetRef ref,
+      ) async {
+    final token = sharedPrefs.getString(kTokenKey);
+
+    if (token == null || token.isEmpty) {
+      navigatorKey?.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => AuthScreen(),
+        ),
+            (route) => false,
+      );
+
+      return;
+    }
+
+    // Navigate to notification tab
+    ref.read(dashboardProvider.notifier).setPosition(1);
+  }
+
+  // -----------------------------------
+  // CLEAN UP STREAM LISTENERS
+  // -----------------------------------
+
+  Future<void> dispose() async {
+    await _foregroundSubscription?.cancel();
+    await _openedAppSubscription?.cancel();
+
+    _foregroundSubscription = null;
+    _openedAppSubscription = null;
+
+    _initialized = false;
   }
 }

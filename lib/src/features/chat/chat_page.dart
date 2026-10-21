@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,6 +20,8 @@ import '../../common/widgets/common_button.dart';
 import '../../providers/data_providers.dart';
 import '../../providers/room_provider.dart';
 import '../../utils/fonts.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart'
+as emoji_picker;
 
 class ChatPage extends ConsumerStatefulWidget {
   final String roomId;
@@ -390,21 +391,22 @@ class _MessageBarState extends ConsumerState<_MessageBar> {
 
             /// -- Emoji Picker --
             if (_showEmojiPicker)
-              EmojiPicker(
+              emoji_picker.EmojiPicker(
                 textEditingController: _textController,
-                config: Config(
+                config: emoji_picker.Config(
                   height: 256,
                   checkPlatformCompatibility: true,
-                  viewOrderConfig: const ViewOrderConfig(
-                    top: EmojiPickerItem.searchBar,
-                    middle: EmojiPickerItem.emojiView,
-                    bottom: EmojiPickerItem.categoryBar,
+                  viewOrderConfig: const emoji_picker.ViewOrderConfig(
+                    top: emoji_picker.EmojiPickerItem.searchBar,
+                    middle: emoji_picker.EmojiPickerItem.emojiView,
+                    bottom: emoji_picker.EmojiPickerItem.categoryBar,
                   ),
-                  emojiViewConfig: const EmojiViewConfig(
+                  emojiViewConfig: const emoji_picker.EmojiViewConfig(
                     backgroundColor: Colors.white,
                   ),
-                  skinToneConfig: const SkinToneConfig(),
-                  bottomActionBarConfig: const BottomActionBarConfig(
+                  skinToneConfig: const emoji_picker.SkinToneConfig(),
+                  bottomActionBarConfig:
+                  const emoji_picker.BottomActionBarConfig(
                     backgroundColor: Colors.white,
                     buttonColor: Colors.white,
                     buttonIconColor: Colors.black26,

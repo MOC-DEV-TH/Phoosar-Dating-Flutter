@@ -1,6 +1,4 @@
-import 'dart:async';
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:io';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/gestures.dart';
@@ -8,8 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:intl_phone_number_input/intl_phone_number_input.dart';
 import 'package:phoosar/env/env.dart';
+import 'package:intl_phone_number_input/intl_phone_number_input.dart';
 import 'package:phoosar/src/common/widgets/common_button.dart';
 import 'package:phoosar/src/common/widgets/email_and_phone_number_view.dart';
 import 'package:phoosar/src/common/widgets/horizontal_text_icon_button.dart';
@@ -51,6 +49,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isLoading = false;
+  static Future<void>? _googleInitialization;
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
@@ -70,6 +69,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -187,7 +187,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               toggleObscured: onTapToggleObscured,
                               toggleObscuredColor: Colors.black,
                               hintLabel:
-                                  AppLocalizations.of(context)!.kPasswordLabel),
+                              AppLocalizations.of(context)!.kPasswordLabel),
                         ],
                       ),
                     ),
@@ -228,7 +228,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: Text(
                         AppLocalizations.of(context)!.kForgotPasswordLabel,
                         style:
-                            TextStyle(fontSize: kTextRegular2x, color: Color(0xFFF5D5DD)),
+                        TextStyle(fontSize: kTextRegular2x, color: Color(0xFFF5D5DD)),
                       ),
                     ),
 
@@ -309,145 +309,136 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _signIn() async {
+    if (_isLoading) return;
+    if (e164PhoneNo.trim().isEmpty || passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter phone number and password.')),
+      );
+      return;
+    }
+
+    // Never include credentials, phone numbers, or passwords in analytics.
     FacebookAnalyticsService.instance.logEvent(
-      name: "login",
-      parameters: {
-        "email": emailController.text,
-        "password": passwordController.text,
-      },
+      name: 'login',
+      parameters: {'method': 'phone'},
     );
     await FirebaseAnalytics.instance.logEvent(
-      name: "login",
-      parameters: {
-        "email": emailController.text,
-        "password": passwordController.text,
-      },
+      name: 'login',
+      parameters: {'method': 'phone'},
     );
-    setState(() {
-      _isLoading = true;
-    });
-    var response = await ref.read(repositoryProvider).login(
-          jsonEncode({
-            "type": "phone",
-            "value":
-            e164PhoneNo,
-            "password": "${passwordController.text}",
-          }),
-          context,
-        );
-    if (response.statusCode.toString().startsWith("2")) {
-      AuthenticationResponse authResponse =
-          AuthenticationResponse.fromJson(jsonDecode(response.body));
-      ref
-          .watch(sharedPrefProvider)
-          .setString(kTokenKey, authResponse.token ?? '');
-      ref
-          .watch(sharedPrefProvider)
-          .setString(kRecentOnboardingKey, authResponse.recentOnBoarding ?? '');
-      final profileRes = await ref
-          .watch(repositoryProvider)
-          .getProfile(jsonEncode({}), context);
-      var data = SelfProfileResponse.fromJson(jsonDecode(profileRes.body));
-      ref.read(selfProfileProvider.notifier).state = data;
-      setState(() {
-        recentOnboardingStatus = authResponse.recentOnBoarding ?? '';
-      });
+    if (!mounted) return;
+    setState(() => _isLoading = true);
 
-      ///Supabase Login
-      try {
-        await supabase.auth.signInWithPassword(
-          email: ('user' + e164PhoneNo + '@gmail.com'),
-          password: passwordController.text,
-        );
-        navigateToNextScreen();
-      } on AuthException catch (error) {
-        setState(() {
-          _isLoading = false;
-        });
-        context.showErrorSnackBar(message: error.message);
-      } catch (_) {
-        setState(() {
-          _isLoading = false;
-        });
+    try {
+      final response = await ref.read(repositoryProvider).login(
+        jsonEncode({
+          'type': 'phone',
+          'value': e164PhoneNo,
+          'password': passwordController.text,
+        }),
+        context,
+      );
+      if (!mounted) return;
+      if (!response.statusCode.toString().startsWith('2')) return;
+
+      final authResponse = AuthenticationResponse.fromJson(
+        jsonDecode(response.body),
+      );
+      final prefs = ref.read(sharedPrefProvider);
+      await prefs.setString(kTokenKey, authResponse.token ?? '');
+      await prefs.setString(
+        kRecentOnboardingKey,
+        authResponse.recentOnBoarding ?? '',
+      );
+
+      final profileRes = await ref.read(repositoryProvider).getProfile(
+        jsonEncode({}), context,
+      );
+      if (!mounted) return;
+      final data = SelfProfileResponse.fromJson(jsonDecode(profileRes.body));
+      ref.read(selfProfileProvider.notifier).state = data;
+      recentOnboardingStatus = authResponse.recentOnBoarding ?? '';
+      recentOnBoarding = authResponse.recentOnBoarding;
+
+      await supabase.auth.signInWithPassword(
+        email: 'user$e164PhoneNo@gmail.com',
+        password: passwordController.text,
+      );
+      if (!mounted) return;
+      await navigateToNextScreen();
+    } on AuthException catch (error) {
+      if (mounted) context.showErrorSnackBar(message: error.message);
+    } catch (error) {
+      debugPrint('Login failed: $error');
+      if (mounted) {
         context.showErrorSnackBar(message: unexpectedErrorMessage);
       }
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-      setState(() {
-        recentOnBoarding = authResponse.recentOnBoarding;
-      });
-    } else {
-      setState(() {
-        _isLoading = false;
-      });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  navigateToNextScreen() async{
+  Future<void> navigateToNextScreen() async {
+    if (!mounted) return;
     ref.invalidate(profilesProvider);
     ref.invalidate(profileProvider);
     ref.invalidate(roomsProvider);
     ref.invalidate(supabaseClientProvider);
-    debugPrint("RecentOnboardingStatus>>>>>>>$recentOnboardingStatus");
 
-    ///tracking tiktok event
-    await TikTokEvents.trackEvent(
-      'Login',
-      properties: {'value': e164PhoneNo,},
+    // Avoid transmitting personal identifiers in marketing analytics.
+    await TikTokEvents.trackEvent('Login', properties: {'method': 'phone'});
+    if (!mounted) return;
+
+    await ref.read(sharedPrefProvider).setString(
+      kRecentOnboardingKey,
+      recentOnboardingStatus ?? '',
     );
+    if (!mounted) return;
 
-    ref
-        .watch(sharedPrefProvider)
-        .setString(kRecentOnboardingKey, recentOnboardingStatus ?? '');
     if (recentOnboardingStatus == kProfileStatus) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => ChooseGenderScreen()),
+        MaterialPageRoute(builder: (_) => ChooseGenderScreen()),
       );
     } else if (recentOnboardingStatus == kQuestionStatus) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => OnBoardingScreen()),
+        MaterialPageRoute(builder: (_) => OnBoardingScreen()),
       );
     } else {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => HomeScreen()),
-        (Route<dynamic> route) => false,
+        MaterialPageRoute(builder: (_) => HomeScreen()),
+            (_) => false,
       );
     }
   }
 
-  googleSignIn() async {
-    GoogleSignIn googleSignIn = Platform.isAndroid
-        ? GoogleSignIn(
-            scopes: <String>[
-              'email',
-              'https://www.googleapis.com/auth/contacts.readonly',
-            ],
-          )
-        : GoogleSignIn(
-            clientId: Env.googleClientId,
-            scopes: <String>[
-              'email',
-              'https://www.googleapis.com/auth/contacts.readonly',
-            ],
-          );
+  Future<void> googleSignIn() async {
+    try {
+      final google = GoogleSignIn.instance;
+      _googleInitialization ??= google.initialize(
+        clientId: Platform.isIOS ? Env.googleClientId : null,
+      );
+      await _googleInitialization;
 
-    googleSignIn.signIn().then((result) {
-      var avator = result!.photoUrl;
-      var name = result.displayName;
-      var email = result.email;
-      log(result.toString());
-      result.authentication.then((googleKey) {
-        loginWithSocialToken(
-            googleKey.accessToken!, "google", avator ?? "", name ?? "", email);
-      }).catchError((err) {
-        log(err.toString());
-      });
-    }).catchError((err) {
-      log(err.toString());
-    });
+      if (!google.supportsAuthenticate()) {
+        throw StateError('Interactive Google Sign-In unsupported on this platform');
+      }
+      final account = await google.authenticate();
+      const scopes = <String>['email'];
+      final auth = await account.authorizationClient.authorizationForScopes(scopes)
+          ?? await account.authorizationClient.authorizeScopes(scopes);
+      if (!mounted) return;
+      await loginWithSocialToken(
+        auth.accessToken,
+        'google',
+        account.photoUrl ?? '',
+        account.displayName ?? '',
+        account.email,
+      );
+    } on GoogleSignInException catch (error) {
+      debugPrint('Google Sign-In failed: $error');
+    } catch (error) {
+      debugPrint('Google login failed: $error');
+    }
   }
 
   supabaseSocialRegister(String email, String name) async {
@@ -532,7 +523,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       AuthenticationResponse authResponse =
       AuthenticationResponse.fromJson(jsonDecode(response.body));
       ref
-          .watch(sharedPrefProvider)
+          .read(sharedPrefProvider)
           .setString(kTokenKey, authResponse.token ?? '');
 
       if (authResponse.type == "old") {
